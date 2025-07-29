@@ -6,11 +6,14 @@ import os
 import tempfile
 from typing import List
 from sentence_transformers import SentenceTransformer, util
+from functools import lru_cache
 
 app = FastAPI()
 
-# Load semantic model once
-model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+@lru_cache(maxsize=1)
+def get_model():
+    return SentenceTransformer("paraphrase-MiniLM-L3-v2")
+
 
 # ---------- Request Format ----------
 class HackRxRequest(BaseModel):
@@ -35,6 +38,7 @@ def extract_clauses_from_pdf(pdf_path):
 
 # ---------- Helper: Answer a single question ----------
 def answer_question(question, clauses, top_k=1):
+    model = get_model()
     clause_texts = [c["text"] for c in clauses]
     clause_embeddings = model.encode(clause_texts, convert_to_tensor=True)
     query_embedding = model.encode(question, convert_to_tensor=True)
