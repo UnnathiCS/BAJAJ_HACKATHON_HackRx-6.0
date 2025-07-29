@@ -49,8 +49,8 @@ def answer_question(question, clauses, top_k=1):
 # ---------- Endpoint ----------
 @app.post("/hackrx/run")
 async def hackrx_runner(req: HackRxRequest, authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        return {"error": "Unauthorized. Please provide a valid Bearer token."}
+    # if not authorization or not authorization.startswith("Bearer "):
+    #     return {"error": "Unauthorized. Please provide a valid Bearer token."}
 
     try:
         # 1. Download PDF
