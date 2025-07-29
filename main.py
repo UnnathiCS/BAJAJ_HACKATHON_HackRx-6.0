@@ -76,3 +76,11 @@ async def hackrx_runner(req: HackRxRequest, authorization: str = Header(None)):
 
     except Exception as e:
         return {"error": f"Internal error: {str(e)}"}
+
+@app.get("/")
+def home():
+    return {"message": "FastAPI is live on Render"}
+
+@app.post("/hackrx/run")
+def run_stub():
+    return {"answers": ["Sample answer 1", "Sample answer 2"]}
