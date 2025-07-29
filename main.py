@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer, util
 app = FastAPI()
 
 # Load semantic model once
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
 
 # ---------- Request Format ----------
 class HackRxRequest(BaseModel):
