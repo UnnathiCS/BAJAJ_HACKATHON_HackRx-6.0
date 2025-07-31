@@ -1,8 +1,7 @@
-from fastapi import FastAPI, Request, Header
+from fastapi import FastAPI, Header
 from pydantic import BaseModel
 import fitz  # PyMuPDF
 import requests
-import os
 import tempfile
 from typing import List
 from sentence_transformers import SentenceTransformer, util
