@@ -6,6 +6,8 @@ import tempfile
 from typing import List
 from sentence_transformers import SentenceTransformer, util
 from functools import lru_cache
+import torch
+torch.set_num_threads(1)
 
 app = FastAPI()
 
@@ -13,66 +15,66 @@ app = FastAPI()
 def get_model():
     return SentenceTransformer("paraphrase-MiniLM-L3-v2")
 
-
-# ---------- Request Format ----------
 class HackRxRequest(BaseModel):
     documents: str
     questions: List[str]
 
-# ---------- Helper: Extract text from PDF ----------
 def extract_clauses_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
     clauses = []
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        blocks = page.get_text("blocks")
+    for page_num in range(min(len(doc), 25)):  # limit to 25 pages
+        blocks = doc[page_num].get_text("blocks")
         for block in blocks:
             text = block[4].strip()
-            if len(text.split()) > 6:
+            if len(text.split()) > 8:  # avoid tiny fragments
                 clauses.append({
                     "page": page_num + 1,
                     "text": text.replace("\n", " ")
                 })
     return clauses
 
-# ---------- Helper: Answer a single question ----------
-def answer_question(question, clauses, top_k=1):
+def answer_question(question, clauses, top_k=2):
     model = get_model()
     clause_texts = [c["text"] for c in clauses]
     clause_embeddings = model.encode(clause_texts, convert_to_tensor=True)
     query_embedding = model.encode(question, convert_to_tensor=True)
-    hits = util.semantic_search(query_embedding, clause_embeddings, top_k=top_k)[0]
-    top_clause = clauses[hits[0]["corpus_id"]]
-    return top_clause["text"]
 
-# ---------- Endpoint ----------
+    hits = util.semantic_search(query_embedding, clause_embeddings, top_k=top_k)[0]
+
+    if hits and hits[0]["score"] > 0.3:
+        best = hits[0]
+        return clauses[best["corpus_id"]]["text"]
+    else:
+        return "Unable to find answer."
+
+@app.get("/")
+def root():
+    return {"message": "HackRx API is live ✅"}
+
+@app.get("/hackrx/run")
+def fallback_run():
+    return {"message": "Please send a POST request to this endpoint with insurance PDF and questions."}
+
 @app.post("/hackrx/run")
 async def hackrx_runner(req: HackRxRequest, authorization: str = Header(None)):
-    # if not authorization or not authorization.startswith("Bearer "):
-    #     return {"error": "Unauthorized. Please provide a valid Bearer token."}
-
     try:
-        # 1. Download PDF
         pdf_url = req.documents
-        pdf_data = requests.get(pdf_url)
+        response = requests.get(pdf_url)
         tmp_pdf_path = tempfile.mktemp(suffix=".pdf")
         with open(tmp_pdf_path, "wb") as f:
-            f.write(pdf_data.content)
+            f.write(response.content)
 
-        # 2. Extract Clauses
         clauses = extract_clauses_from_pdf(tmp_pdf_path)
 
-        # 3. Answer Questions
         answers = []
         for q in req.questions:
             try:
-                answer = answer_question(q, clauses)
-                answers.append(answer)
-            except:
+                a = answer_question(q, clauses)
+                answers.append(a)
+            except Exception:
                 answers.append("Unable to find answer.")
 
         return {"answers": answers}
 
     except Exception as e:
         return {"error": f"Internal error: {str(e)}"}
-
