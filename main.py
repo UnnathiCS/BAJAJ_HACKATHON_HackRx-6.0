@@ -34,27 +34,6 @@ def extract_clauses_from_pdf(pdf_path):
     return clauses
 
 def answer_question(question, clauses, top_k=3):
-    # 🎯 Fallback dictionary for exact-match questions
-    PREDEFINED_ANSWERS = {
-        "grace period": "A grace period of thirty days is provided for premium payment after the due date to renew or continue the policy without losing continuity benefits.",
-        "pre-existing": "There is a waiting period of thirty-six (36) months of continuous coverage from the first policy inception for pre-existing diseases and their direct complications to be covered.",
-        "maternity": "Yes, the policy covers maternity expenses after 24 months of continuous coverage. This includes childbirth and lawful medical termination of pregnancy. The benefit is limited to two deliveries or terminations during the policy period.",
-        "cataract": "The policy has a specific waiting period of two (2) years for cataract surgery.",
-        "organ donor": "Yes, the policy covers medical expenses for the organ donor’s hospitalization for the purpose of harvesting the organ, if the organ is for an insured person and complies with the Transplantation of Human Organs Act, 1994.",
-        "ncd": "A No Claim Discount of 5% on the base premium is offered on renewal for a one-year policy term. The maximum aggregate NCD is capped at 5% of the total base premium.",
-        "check-up": "Yes, the policy reimburses expenses for preventive health check-ups at the end of every block of two continuous policy years, provided the policy has been renewed without a break.",
-        "hospital": "A hospital is defined as an institution with at least 10 inpatient beds (in towns <10 lakh) or 15 beds (in other areas), with 24x7 medical staff, a functioning OT, and daily patient records.",
-        "ayush": "The policy covers inpatient treatments under Ayurveda, Yoga, Naturopathy, Unani, Siddha, and Homeopathy (AYUSH) up to the sum insured, provided treatment is taken in an AYUSH hospital.",
-        "room rent": "For Plan A, room rent is capped at 1% of the Sum Insured per day and ICU charges at 2%. These limits do not apply for listed procedures under PPN."
-    }
-
-    # 🧠 Keyword-based hard fallback
-    lower_q = question.lower()
-    for keyword, answer in PREDEFINED_ANSWERS.items():
-        if keyword in lower_q:
-            return answer
-
-    # 🔍 Semantic fallback
     model = get_model()
     clause_texts = [c["text"] for c in clauses]
     clause_embeddings = model.encode(clause_texts, convert_to_tensor=True)
@@ -63,15 +42,17 @@ def answer_question(question, clauses, top_k=3):
 
     if hits and hits[0]["score"] > 0.3:
         best_clause = clauses[hits[0]["corpus_id"]]["text"]
-        question_keywords = set(lower_q.split())
+
+        # 🎯 Extract the most relevant sentence
+        question_keywords = set(question.lower().split())
         best_sent = max(
-            best_clause.split("."),
+            best_clause.split("."), 
             key=lambda s: len(set(s.lower().split()) & question_keywords)
         )
-        return best_sent.strip() + "."
+
+        return best_sent.strip() + "."  # always end with period
     else:
         return "Unable to find answer."
-
 
 
 
