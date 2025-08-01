@@ -22,11 +22,11 @@ class HackRxRequest(BaseModel):
 def extract_clauses_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
     clauses = []
-    for page_num in range(min(len(doc), 25)):  # limit to 25 pages
+    for page_num in range(min(len(doc), 20)):  # Lower page count to reduce latency
         blocks = doc[page_num].get_text("blocks")
         for block in blocks:
             text = block[4].strip()
-            if len(text.split()) > 8:  # avoid tiny fragments
+            if 20 < len(text) < 1000 and len(text.split()) > 8:  # good-size clauses
                 clauses.append({
                     "page": page_num + 1,
                     "text": text.replace("\n", " ")
@@ -40,19 +40,20 @@ def answer_question(question, clauses, top_k=3):
     q_embedding = model.encode(question, convert_to_tensor=True)
     hits = util.semantic_search(q_embedding, clause_embeddings, top_k=top_k)[0]
 
-    if hits and hits[0]["score"] > 0.3:
+    if hits:
         best_clause = clauses[hits[0]["corpus_id"]]["text"]
-
-        # 🎯 Extract the most relevant sentence
+        # Smart sentence extraction
+        sentences = best_clause.split(".")
         question_keywords = set(question.lower().split())
-        best_sent = max(
-            best_clause.split("."), 
-            key=lambda s: len(set(s.lower().split()) & question_keywords)
+        scored_sentences = sorted(
+            sentences,
+            key=lambda s: len(set(s.lower().split()) & question_keywords),
+            reverse=True
         )
+        best_sentence = scored_sentences[0].strip()
+        return best_sentence + "." if best_sentence else best_clause
+    return "Unable to find answer."
 
-        return best_sent.strip() + "."  # always end with period
-    else:
-        return "Unable to find answer."
 
 
 
