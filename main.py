@@ -37,15 +37,19 @@ def answer_question(question, clauses, top_k=2):
     model = get_model()
     clause_texts = [c["text"] for c in clauses]
     clause_embeddings = model.encode(clause_texts, convert_to_tensor=True)
-    query_embedding = model.encode(question, convert_to_tensor=True)
+    q_embedding = model.encode(question, convert_to_tensor=True)
 
-    hits = util.semantic_search(query_embedding, clause_embeddings, top_k=top_k)[0]
-
+    hits = util.semantic_search(q_embedding, clause_embeddings, top_k=top_k)[0]
+    
     if hits and hits[0]["score"] > 0.3:
-        best = hits[0]
-        return clauses[best["corpus_id"]]["text"]
-    else:
-        return "Unable to find answer."
+        top_clause = clauses[hits[0]["corpus_id"]]["text"]
+        # Optional post-processing trick:
+        for line in top_clause.split("."):
+            if any(kw in line.lower() for kw in question.lower().split()):
+                return line.strip()
+        return top_clause.strip().split(".")[0]
+    return "Unable to find answer."
+
 
 @app.get("/")
 def root():
